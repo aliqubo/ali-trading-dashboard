@@ -1,0 +1,10 @@
+{
+  "name": "run-ali-trading-dashboard-driver",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Agent-tooling driver for the run-ali-trading-dashboard skill. Not part of the app; not published.",
+  "type": "module",
+  "dependencies": {
+    "playwright": "^1.62.1"
+  }
+}

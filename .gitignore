@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.coverage
+
+# Environment / secrets
+.env
+.env.e2e
+!.env.example
+
+# Node
+node_modules/
+dist/
+
+# Playwright
+test-results/
+playwright-report/
+frontend/e2e/.auth/
+
+# Local Postgres runtime
+local-postgres/data/
+local-postgres/pgsql/
+local-postgres/postgresql-binaries.zip
+local-postgres/pwfile.txt
+local-postgres/*.log
+
+# Skill runtime
+.claude/skills/*/node_modules/
+.claude/skills/*/screenshots/
+
+# OS / editor
+.DS_Store
