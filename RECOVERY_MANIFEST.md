@@ -270,7 +270,7 @@ After a schema-only reset of `ali_trading_test` (`DROP SCHEMA public CASCADE; CR
 - Database-level invariant coverage is incomplete: no test exercises `client_order_id` uniqueness, the partial unique index on open positions, or any `CheckConstraint`.
 - Multi-symbol batching in `_resolve_symbols()` is untested — every test in this phase uses exactly one symbol. (Closed in Phase 8 — see "Phase 8 — Closure" below.)
 - A session-expiry dashboard-redirect gap exists outside the trading-dashboard scope: if the access and refresh tokens both become invalid while the dashboard is open, the user sees an error message rather than being redirected to `/login`. This lives in `frontend/src/api/client.ts`/`frontend/src/auth/AuthContext.tsx`, not in the trading-dashboard files reviewed in 7.5.
-- A `pytest-asyncio` deprecation warning (the custom `event_loop` fixture in `backend/tests/conftest.py`) remains deferred — cosmetic, does not affect test results.
+- A `pytest-asyncio` deprecation warning (the custom `event_loop` fixture in `backend/tests/conftest.py`) was flagged here as deferred/cosmetic. It was fixed in Phase 8 Item 5: the custom fixture was removed from `backend/tests/conftest.py`, the full backend suite was verified at **53/53** immediately after the fix and later **54/54** once the DB-invariant coverage addition landed, and the "event_loop fixture ... has been redefined" warning no longer appears in the run's output. Phase 8 Item 5 is **VERIFIED / COMPLETE** — see "Item 5: pytest-asyncio `event_loop` Deprecation Warning" below.
 
 ---
 
