@@ -266,7 +266,7 @@ After a schema-only reset of `ali_trading_test` (`DROP SCHEMA public CASCADE; CR
 
 ### Known gaps (Phase 7)
 
-- `ali_trading_test` requires a schema reset when switching between the Alembic-based isolated E2E setup (7.6) and the `Base.metadata`-based pytest fixtures (7.2–7.4, 7.7) — the two are not compatible with each other in the same schema state, and nothing currently automates the reset between them.
+- `ali_trading_test` requires a schema reset when switching between the Alembic-based isolated E2E setup (7.6) and the `Base.metadata`-based pytest fixtures (7.2–7.4, 7.7) — the two are not compatible with each other in the same schema state, and nothing currently automates the reset between them. (Resolved architecturally after Phase 7 — see "Phase 8 — Closure" below: the isolated E2E path was subsequently moved to its own dedicated `ali_trading_e2e` database, so it no longer shares a database with the pytest suite.)
 - Database-level invariant coverage is incomplete: no test exercises `client_order_id` uniqueness, the partial unique index on open positions, or any `CheckConstraint`.
 - Multi-symbol batching in `_resolve_symbols()` is untested — every test in this phase uses exactly one symbol. (Closed in Phase 8 — see "Phase 8 — Closure" below.)
 - A session-expiry dashboard-redirect gap exists outside the trading-dashboard scope: if the access and refresh tokens both become invalid while the dashboard is open, the user sees an error message rather than being redirected to `/login`. This lives in `frontend/src/api/client.ts`/`frontend/src/auth/AuthContext.tsx`, not in the trading-dashboard files reviewed in 7.5.
@@ -405,5 +405,41 @@ No application code, models, `conftest.py`, frontend code, or `pyproject.toml` w
 - The full frontend Playwright E2E suite (unfiltered) currently stands at **10/10 passed, 0 failed, 0 skipped**, including the session-expiry regression test at **1/1**, all authentication tests, and all 6 dashboard E2E tests — see "Full Frontend Playwright Regression (post-Phase-8 verification)" above.
 - The isolated E2E path continues to use its own dedicated database, `ali_trading_e2e`, kept separate from both `ali_trading` and `ali_trading_test`.
 - `ali_trading` remained protected/unchanged throughout all of Phase 8's work (schema, table count, and user count); the same holds for `ali_trading_e2e`'s schema, table count, and Alembic revision, with only the expected user/session/refresh-token row increases documented above.
-- **Not** covered by this closure: the §7.7 gap describing the `ali_trading_test` schema-reset incompatibility between the Alembic-based isolated E2E setup and the `Base.metadata`-based pytest fixtures — this was not addressed during Phase 8 and remains open.
+- The §7.7 gap describing the `ali_trading_test` schema-reset incompatibility is resolved — architecturally, not via an explicit Phase 8 code change: the pytest suite uses `ali_trading_test` (schema created/dropped per test via `Base.metadata`), while the isolated Playwright E2E path uses its own dedicated `ali_trading_e2e` database (Alembic-managed, per the point above). Under the normal workflow the two databases are entirely separate, and neither workflow's tooling ever touches the other's database, so switching between the two no longer requires a schema reset. (The Phase 9 Option 1 reset of `ali_trading_test`, documented in §11 below, was cleanup of legacy schema drift left over from history — not a fix for an active workflow conflict; the databases had already been separated by the time that reset was performed.)
 - This closure does **not** claim that any historical/pre-recovery test suite (the ~340 tests referenced in the lost phase reports, §5/§8) has been restored — only the tests that exist in this recovered codebase were run.
+
+---
+
+## 11. Phase 9 — Recovery Verification and Documentation Correction
+
+**Purpose:** verify the state of `ali_trading_test` after an operational anomaly was noticed, apply the previously-approved minimal remediation, confirm no other database was affected, close out the two remaining §7.7 gaps, and correct documentation that had drifted out of date since Phase 8 — including adding this section, which the manifest previously lacked entirely.
+
+### 11.1 — `ali_trading_test` state investigation and reset
+
+A read-only investigation identified an anomaly in `ali_trading_test`'s `information_schema` state (its catalog no longer matched what the `Base.metadata`-driven pytest fixtures expect). The approved remediation was **Option 1**: a public-schema-only reset — the same pattern already used once before for the identical symptom (§7.7 "Closure regression": `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`, database and role untouched) — scoped strictly to `ali_trading_test`. A precautionary backup was taken first: `backups/ali_trading_test_pre_phase9_20260827_163509.dump`. The reset was applied and verified successful before the rest of this session's recorded work began; per §11.5 below, this was cleanup of drift, not a fix for an active workflow conflict.
+
+### 11.2 — Backup hygiene
+
+The precautionary backup under `backups/` was found untracked but **not** covered by `.gitignore` — an ordinary `git commit` would not have picked it up, but `git add -A`/`git add .` would have. `backups/` was added to `.gitignore`, verified ignored via `git check-ignore -v`, and committed (`Phase 9: ignore database backups`). The backup file itself was never deleted or modified.
+
+### 11.3 — Full backend regression + other-database verification
+
+The full backend pytest suite was run: **54 passed, 0 failed, 0 errors, 0 skipped** — confirming `ali_trading_test`'s post-reset schema matches what `tests/conftest.py`'s fixtures expect. `ali_trading` and `ali_trading_e2e` were independently verified unaffected: both present, both **56 tables**, both on Alembic head `c58385829d11`. Row-count spot check: `ali_trading` — 3 users / 2 trades / 3 orders / 1 position; `ali_trading_e2e` — 6 users / 0 trades / 0 orders / 0 positions — consistent with prior activity, no unexpected mutation.
+
+### 11.4 — Priority 2: `_resolve_symbols()` multi-symbol gap
+
+A read-only investigation confirmed the §7.7 "multi-symbol batching... is untested" gap was already closed in Phase 8: `test_symbol_resolution_maps_multiple_symbols_independently` (`backend/tests/test_trading_api.py`) already existed and was already included in the 54/54 result above — no new test was needed. §7.7 and the "Phase 8 — Closure" section were corrected to reflect this (`Phase 9: document resolved recovery gaps`).
+
+### 11.5 — Priority 1: `ali_trading_test` schema-reset incompatibility
+
+A separate read-only investigation into the §7.7 gap describing a schema-reset incompatibility between the isolated E2E setup and the pytest fixtures found it no longer describes the current architecture: the isolated Playwright E2E path now uses its own dedicated `ali_trading_e2e` database (see `backend/.env.e2e`'s own header comment, and `frontend/e2e/auth.spec.ts`'s comments), separate from `ali_trading_test`. Traced directly against current source (`backend/tests/conftest.py`, `backend/.env.e2e`, `frontend/e2e/auth.spec.ts`, `playwright.config.ts`) — not inferred from this document's own prior claims. §7.7 and the "Phase 8 — Closure" section (this document) were corrected accordingly.
+
+### 11.6 — Stale documentation corrected
+
+- §7.7's `event_loop` deprecation-warning bullet, which had never been updated after Item 5 closed it, was corrected to record that fix.
+- `README.md` was rewritten end-to-end — it still described the pre-Phase-2 "Core Infrastructure" skeleton (wrong endpoints, a nonexistent Docker/Compose setup, wrong project layout, wrong migration status) — to accurately describe the current backend, frontend, API routes, project structure, local setup, testing, migrations, and the three-database split.
+- §7.7's two remaining stale gap statements (11.4, 11.5 above) were corrected in this document.
+
+### Status
+
+All Phase 9 work above is verification- and documentation-only. No application, test, configuration, or migration file was modified at any point during Phase 9; no database was modified beyond the single approved `ali_trading_test` reset in §11.1. This document does **not** claim that any historical/pre-recovery test suite has been restored, and does not claim any domain or feature beyond what §5 already documents as in scope.

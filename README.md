@@ -212,8 +212,10 @@ instance, kept strictly isolated from each other:
 | Database | Used by | Notes |
 |---|---|---|
 | `ali_trading` | The normal dev backend (`:8000`) and frontend (`:5173`) | The real/protected application database. Contains the seeded `testuser` account. Schema managed by Alembic. Treat as precious — do not reset or drop it casually. |
-| `ali_trading_test` | The backend pytest suite (`backend/tests/conftest.py` swaps the URL from `ali_trading` to this database) | Schema is created/dropped per test session via SQLAlchemy `Base.metadata`, **not** Alembic — this is a different schema-management path from the other two databases, and switching between it and Alembic-managed state can require a manual schema reset. |
+| `ali_trading_test` | The backend pytest suite (`backend/tests/conftest.py` swaps the URL from `ali_trading` to this database) | Schema is created/dropped per test via SQLAlchemy `Base.metadata` (not Alembic). |
 | `ali_trading_e2e` | The isolated Playwright E2E path (backend `:8001`, frontend `:5174`, configured via `backend/.env.e2e`) | Schema managed by Alembic, like `ali_trading`. Exists specifically so the E2E tests that register real, permanent users never touch `ali_trading`. |
+
+`ali_trading_test` (`Base.metadata` lifecycle) and `ali_trading_e2e` (isolated Alembic schema) are separate databases — the pytest suite never touches `ali_trading_e2e`, and the isolated E2E path never touches `ali_trading_test`. Switching between running the backend test suite and running the isolated E2E suite does not require a schema reset.
 
 ## Secrets
 
