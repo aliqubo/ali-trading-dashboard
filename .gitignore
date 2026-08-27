@@ -32,3 +32,6 @@ local-postgres/*.log
 
 # OS / editor
 .DS_Store
+
+# Database backups
+backups/
